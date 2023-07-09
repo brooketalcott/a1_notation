@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=40.8.0", "wheel","setuptools_scm[toml]>=6.2"]
+
+[[project.authors]]
+name="Brooke Talcott"
+
+[project]
+name = "a1_notation"
+
+description = "A1 Notation lookups in various formats for pre-computed or generated-as-needed usage"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Utilities",
+    "Development Status :: 1 - Planning",
+]
+keywords = ["excel","a1 notation"]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/brooketalcott/a1_notation"
+Repository = "https://github.com/brooketalcott/a1_notation"
+Issue-Tracker = "https://github.com/brooketalcott/a1_notation/issues"
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.3.0", 
+    "pre-commit>=3.3.3",
+    "ruff>=0.0.277"
+]
+
+[tool.setuptools.package-data]
+"a1_notation" = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["a1_notation"]
+
+[tool.setuptools_scm]
+write_to = "a1_notation/_version.py"
+fallback_version = "0.0.0"
+
+[tool.ruff]
+select = ["E", "F"]
+ignore = []
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "env",
+]
+# Same as Black.
+line-length = 88
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Assume Python 3.10.
+target-version = "py310"
+
+[tool.ruff.isort]
+known-first-party = ["a1_notation"]
+combine-as-imports = true

@@ -136,7 +136,7 @@ dmypy.json
 .vscode-server
 
 # Version file
-a1_notation/_version.py
+_version.py
 
 # Ruff
 .ruff_cache

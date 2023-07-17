@@ -1,40 +1,60 @@
 import functools as _functools
 import itertools as _itertools
+import re as _re
 import string as _string
+import typing as _t
 from collections.abc import Generator as _Generator, Iterator as _Iterator
-from typing import Any, Self
-import dataclasses as _dataclasses
+
+from a1_notation import exceptions as _exc
 
 
 def _concat(*args):
     return "".join(args)
 
 
-@_functools.cache
+def _cache(f):
+    """not sure why vscode is not showing my docstring so.."""
+
+    @_functools.wraps(f)
+    @_functools.cache
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+@_cache
 class A1LookupGenerator:
-    """Generates letter to number and number to letter lookups sequentially as-needed.
+    """
+    ---
+    Generates letter to number and number to letter lookups sequentially as-needed.
+
     i.e. if you don't need the number for column XFD (or 16384), the generator will
     never be iterated to that point.
 
+    args:
+        start (int): default=1 for typical Excel-like column-letter-numbers
+        max_rounds (int): default=3 max rounds of letter permutations
     """
 
-    @_dataclasses.dataclass
-    class OutOfBoundsError(LookupError):
-        min: int = None
-        max: int = None
-
-    __slots__ = ("_startidx", "_maxint", "_a1_gen", "_maxlen", "_mapping", "_sequence")
-    _transtable = str.maketrans(
+    __slots__ = ("_mapping", "_sequence", "_startidx", "_maxint", "_maxlen", "_a1_gen")
+    _valid_transtable = str.maketrans(
         _string.ascii_lowercase, _string.ascii_uppercase, _string.digits + "$"
     )
+    _valid_regex = _re.compile("[a-zA-Z]")
 
-    def __init__(self, start: int = 1, max_rounds: int = 3) -> Self:
+    def __init__(self, start: int = 1, max_rounds: int = 3) -> _t.Self:
         self._mapping = {}
-        self._sequence = []
         self._a1_gen = self._iter_pool(start, max_rounds)
         self._maxlen = max_rounds
         self._startidx = start
         self._maxint = self._calculate_maxint()
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"start={self._startidx}, max_rounds={self._maxlen})"
+        )
 
     def _calculate_maxint(self) -> int:
         abc_len = len(_string.ascii_uppercase)
@@ -52,7 +72,7 @@ class A1LookupGenerator:
             for skipped in range(start):
                 yield (
                     skipped,
-                    self.OutOfBoundsError(min=self._startidx),
+                    _exc.OutOfBoundsLookupError(min=self._startidx),
                 )
         while rounds <= max_rounds:
             if pool is None:
@@ -67,48 +87,35 @@ class A1LookupGenerator:
                 enumerate_start += len(letters) ** rounds
             rounds += 1
 
-    def __iter__(self) -> _Iterator[Self]:
+    def __iter__(self) -> _Iterator[_t.Self]:
         return self
 
     def __next__(self) -> tuple[int, str]:
         index, notation = next(self._a1_gen)
-        self._sequence.append(notation)
         if index >= self._startidx:
-            self._mapping[notation] = index
+            self._mapping.update({index: notation, notation: index})
         return index, notation
 
     def _get_range(self, value: str) -> tuple[int, int]:
+        """
+        ---
+        Returns column indicies for two-letter range
+        ex: 'A:Z' -> (1,26)
+        """
         start, stop = value.split(":", 1)
         if ":" in stop:
-            raise ValueError("Only one range can be specified")
+            raise _exc.add_exception_detail(
+                ValueError(),
+                f"Only one range can be specified but was called with '{value}'",
+            )
         if stop in self._mapping:
             return self._mapping[start], self._mapping[stop]
         return self[start], self[stop]
 
-    @_functools.singledispatchmethod
     def __getitem__(self, idx_or_key: int | str) -> str | int:
-        pass
-
-    @__getitem__.register(int)
-    def __getidx(self, idx: int) -> str:
-        try:
-            return self._sequence[idx]
-        except IndexError:
-            return self.find_missing(idx)
-
-    @__getitem__.register(slice)
-    def __getidx(self, idx: slice) -> str:
-        try:
-            self._sequence[idx.stop - 1]
-        except IndexError:
-            self.find_missing(idx.stop - 1)
-        return self._sequence[idx]
-
-    @__getitem__.register(str)
-    def __getkey(self, key: str) -> int:
-        if key in self._mapping:
-            return self._mapping[key]
-        return self.find_missing(key)
+        if idx_or_key in self._mapping:
+            return self._mapping[idx_or_key]
+        return self.find_missing(idx_or_key)
 
     @_functools.singledispatchmethod
     def validate(self, value: str | int) -> None:
@@ -116,22 +123,31 @@ class A1LookupGenerator:
 
     @validate.register(str)
     def _(self, value: str) -> None:
-        try:
-            assert len(value) <= self._maxlen
-        except AssertionError as e:
-            raise self.OutOfBoundsError(dict(max_strlen=self._maxlen)) from e
+        if len(value) > self._maxlen:
+            raise _exc.add_exception_detail(
+                _exc.OutOfBoundsLookupError(max_strlen=self._maxlen, src=repr(self)),
+                message=(
+                    f"Lookup not possible for value '{value}'. Create a new "
+                    f"instance with max_rounds > {self._maxlen} or correct the"
+                    " lookup value."
+                ),
+            )
+        oob_chars = self._valid_regex.sub("", value)
+        if oob_chars:
+            raise _exc.add_exception_detail(
+                ValueError(f"{oob_chars} not in {_string.ascii_letters}"),
+                message=f"Invalid characters: {oob_chars}",
+            )
 
     @validate.register(int)
     def _(self, value: int) -> None:
-        try:
-            assert self._startidx <= value <= self._maxint
-        except AssertionError as e:
-            raise self.OutOfBoundsError(
-                dict(min=self._startidx, max=self._maxint)
-            ) from e
-
-    def __missing__(self, value: Any) -> str | int | None:
-        return self.find_missing(value)
+        if not self._startidx <= value <= self._maxint:
+            raise _exc.add_exception_detail(
+                _exc.OutOfBoundsLookupError(
+                    min=self._startidx, max=self._maxint, src=repr(self)
+                ),
+                f"Lookup not possible for value '{value}'",
+            )
 
     @_functools.singledispatchmethod
     def find_missing(self, value: int | str) -> str | int:
@@ -139,16 +155,20 @@ class A1LookupGenerator:
 
     @find_missing.register(int)
     def _(self, idx: int) -> str:
+        if idx in self._mapping:
+            return self._mapping[idx]
+
         self.validate(idx)
+
         for _ in self:
-            try:
-                return self._sequence[idx]
-            except IndexError:
-                continue
+            if idx in self._mapping:
+                return self._mapping[idx]
+        else:
+            self._fallback_exception(idx)
 
     @find_missing.register(str)
     def _(self, key: str) -> int:
-        key = key.translate(self._transtable)
+        key = key.translate(self._valid_transtable)
 
         if key in self._mapping:
             return self._mapping[key]
@@ -161,8 +181,18 @@ class A1LookupGenerator:
         for _ in self:
             if key in self._mapping:
                 return self._mapping[key]
+        else:
+            self._fallback_exception(key)
+
+    def _fallback_exception(self, idx_or_key):
+        raise _exc.add_exception_detail(
+            _exc.OutOfBoundsLookupError(src=repr(self)),
+            message=f"{idx_or_key} is out of valid range and {self.__class__.__name__} "
+            "is exhausted",
+        )
 
 
 if __name__ == "__main__":
     x = A1LookupGenerator()
-    print(x(39))
+    b = A1LookupGenerator()
+    print(id(x), id(b))

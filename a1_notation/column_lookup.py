@@ -4,6 +4,7 @@ import re as _re
 import string as _string
 import typing as _t
 from collections.abc import Generator as _Generator, Iterator as _Iterator
+import inspect as _inspect
 
 from a1_notation import exceptions as _exc
 
@@ -23,7 +24,27 @@ def _cache(f):
     return wrapper
 
 
-@_cache
+def _with_defaults(f):
+    @_functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        sig = _inspect.signature(f.__wrapped__).bind(*args, **kwargs)
+        sig.apply_defaults()
+        return f(*sig.args, **sig.kwargs)
+
+    return wrapper
+
+
+def _cache_with_defaults(f):
+    @_with_defaults
+    @_functools.wraps(f)
+    @_cache
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+@_cache_with_defaults
 class A1LookupGenerator:
     """
     ---
@@ -194,5 +215,5 @@ class A1LookupGenerator:
 
 if __name__ == "__main__":
     x = A1LookupGenerator()
-    b = A1LookupGenerator()
-    print(id(x), id(b))
+    b = A1LookupGenerator(max_rounds=3)
+    print(id(b), id(x))

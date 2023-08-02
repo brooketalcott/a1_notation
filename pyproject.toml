@@ -90,6 +90,8 @@ exclude = [
     "venv",
     "env",
 ]
+extend-exclude=["/**/site-packages/**/*.py"]
+
 # Same as Black.
 line-length = 88
 

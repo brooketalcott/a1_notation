@@ -58,7 +58,7 @@ class A1LookupGenerator:
         max_rounds (int): default=3 max rounds of letter permutations
     """
 
-    __slots__ = ("_mapping", "_sequence", "_startidx", "_maxint", "_maxlen", "_a1_gen")
+    __slots__ = ("_mapping", "_startidx", "_maxint", "_maxlen", "_a1_gen")
     _valid_transtable = str.maketrans(
         _string.ascii_lowercase, _string.ascii_uppercase, _string.digits + "$"
     )
@@ -214,6 +214,4 @@ class A1LookupGenerator:
 
 
 if __name__ == "__main__":
-    x = A1LookupGenerator()
-    b = A1LookupGenerator(max_rounds=3)
-    print(id(b), id(x))
+    ...

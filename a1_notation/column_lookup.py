@@ -1,10 +1,10 @@
 import functools as _functools
+import inspect as _inspect
 import itertools as _itertools
 import re as _re
 import string as _string
 import typing as _t
 from collections.abc import Generator as _Generator, Iterator as _Iterator
-import inspect as _inspect
 
 from a1_notation import exceptions as _exc
 

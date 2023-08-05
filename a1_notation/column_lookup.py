@@ -122,8 +122,10 @@ class A1LookupGenerator:
     def __next__(self) -> tuple[int, str]:
         index, notation = next(self._a1_gen)
         if index >= self._startidx:
-            self._mapping.update({index: notation, notation: index})
-            return index, notation
+            if index <= self._maxint:
+                self._mapping.update({index: notation, notation: index})
+                return index, notation
+            raise StopIteration()
         else:
             return next(self)
 

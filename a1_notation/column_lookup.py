@@ -77,6 +77,10 @@ class A1LookupGenerator:
             f"start={self._startidx}, max_rounds={self._maxlen})"
         )
 
+    @property
+    def _range(self):
+        return range(self._startidx, self._maxint)
+
     def _calculate_maxint(self) -> int:
         abc_len = len(_string.ascii_uppercase)
         max_rounds = range(2, self._maxlen + 1)
@@ -91,10 +95,7 @@ class A1LookupGenerator:
         letters = _string.ascii_uppercase
         if start > 0:
             for skipped in range(start):
-                yield (
-                    skipped,
-                    _exc.OutOfBoundsLookupError(min=self._startidx),
-                )
+                yield (skipped, None)
         while rounds <= max_rounds:
             if pool is None:
                 pool = iter(letters)
@@ -115,26 +116,29 @@ class A1LookupGenerator:
         index, notation = next(self._a1_gen)
         if index >= self._startidx:
             self._mapping.update({index: notation, notation: index})
-        return index, notation
+            return index, notation
+        else:
+            return next(self)
 
-    def _get_range(self, value: str) -> tuple[int, int]:
+    def _get_str_slice(self, value: str) -> _t.Generator[int, None, None]:
         """
         ---
-        Returns column indicies for two-letter range
-        ex: 'A:Z' -> (1,26)
+        Returns column index generator object for inclusive letter range
+        ex: 'A:C' -> (i for i in (1,2,3))
         """
         start, stop = value.split(":", 1)
         if ":" in stop:
             raise _exc.add_exception_detail(
                 ValueError(),
-                f"Only one range can be specified but was called with '{value}'",
+                f"Only one string range can be specified but was called with '{value}'",
             )
-        if stop in self._mapping:
-            return self._mapping[start], self._mapping[stop]
-        return self[start], self[stop]
 
-    def __getitem__(self, idx_or_key: int | str) -> str | int:
-        if idx_or_key in self._mapping:
+        start_idx = self._mapping[start] if start in self._mapping else self[start]
+        stop_idx = self._mapping[stop] if stop in self._mapping else self[stop]
+        return range(start_idx, stop_idx + 1)
+
+    def __getitem__(self, idx_or_key: int | str | slice) -> str | int:
+        if not isinstance(idx_or_key, slice) and idx_or_key in self._mapping:
             return self._mapping[idx_or_key]
         return self.find_missing(idx_or_key)
 
@@ -195,7 +199,7 @@ class A1LookupGenerator:
             return self._mapping[key]
 
         if ":" in key:
-            return self._get_range(key)
+            return self._get_str_slice(key)
 
         self.validate(key)
 
@@ -204,6 +208,20 @@ class A1LookupGenerator:
                 return self._mapping[key]
         else:
             self._fallback_exception(key)
+
+    @find_missing.register(slice)
+    def _(self, slice_: slice) -> _t.Generator[str, None, None]:
+        indexes = self._range[slice_]
+        for idx in indexes:
+            if idx in self._mapping:
+                yield self._mapping[idx]
+            else:
+                for _ in self:
+                    if idx in self._mapping:
+                        yield self._mapping[idx]
+                        break
+                else:
+                    self._fallback_exception(idx)
 
     def _fallback_exception(self, idx_or_key):
         raise _exc.add_exception_detail(

@@ -1,6 +1,7 @@
 from enum import Enum
 import functools
 import inspect
+from operator import itemgetter
 
 import pytest
 
@@ -61,6 +62,11 @@ class LookupTypes(Enum):
     @property
     def expected_pairs(self) -> tuple[tuple[int, str]]:
         return self._pairs
+
+
+def all_lookup_type_objects():
+    for lookup_obj in LookupTypes:
+        yield lookup_obj.value
 
 
 def make_basic_lookup_params(lookup: LookupTypes) -> tuple[A1LookupGenerator, int, str]:
@@ -140,6 +146,25 @@ def test_singleton_assumes_defaults():
     sig = inspect.signature(A1LookupGenerator).bind()
     sig.apply_defaults()
     assert A1LookupGenerator() is A1LookupGenerator(*sig.args, **sig.kwargs)
+
+
+@pytest.mark.parametrize("lookup_obj", all_lookup_type_objects())
+def test_slice_lookup(lookup_obj: A1LookupGenerator):
+    abc_idxes = itemgetter("A", "B", "C")(lookup_obj)
+    assert (
+        tuple(lookup_obj[0:3])
+        == ("A", "B", "C")
+        == tuple(lookup_obj[idx] for idx in abc_idxes)
+    )
+
+
+@pytest.mark.parametrize("obj", all_lookup_type_objects())
+def test_string_slice_lookup(obj: A1LookupGenerator):
+    assert (
+        tuple(obj["A:C"])
+        == (obj["A"], obj["B"], obj["C"])
+        == tuple(range(obj._startidx, obj._startidx + 3))
+    )
 
 
 if __name__ == "__main__":

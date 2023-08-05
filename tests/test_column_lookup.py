@@ -39,17 +39,20 @@ def test_decrement_id(a1_pair, new_start, expected_diff):
 
 
 class LookupTypes(Enum):
-    A0 = 0, 3
-    A1 = 1, 3
-    A2 = 2, 3
+    A0 = 0, 3, None
+    A1 = 1, 3, None
+    A2 = 2, 3, None
 
-    def __init__(self, start_value: int, max_rounds: int) -> None:
-        self._value_ = A1LookupGenerator(start=start_value, max_rounds=max_rounds)
+    def __init__(self, start_value: int, max_rounds: int, limit: int | None) -> None:
+        self._value_ = A1LookupGenerator(
+            start=start_value, max_rounds=max_rounds, limit=limit
+        )
         self._pairs = tuple(
             map(functools.partial(decrement_id, new_start=start_value), A1_EXPECTED)
         )
         self._start = start_value
         self._maxrounds = max_rounds
+        self._limit = limit
 
     @property
     def starts_at(self) -> int:
@@ -62,6 +65,10 @@ class LookupTypes(Enum):
     @property
     def expected_pairs(self) -> tuple[tuple[int, str]]:
         return self._pairs
+
+    @property
+    def limit(self) -> None | int:
+        return self._limit
 
 
 def all_lookup_type_objects():
@@ -77,9 +84,9 @@ def make_basic_lookup_params(lookup: LookupTypes) -> tuple[A1LookupGenerator, in
 @pytest.mark.parametrize(
     ("lookup", "expected"),
     (
-        (LookupTypes.A0, (A1LookupGenerator(start=0), 0, "A")),
-        (LookupTypes.A1, (A1LookupGenerator(start=1), 1, "A")),
-        (LookupTypes.A2, (A1LookupGenerator(start=2), 2, "A")),
+        (LookupTypes.A0, (A1LookupGenerator(start=0, limit=None), 0, "A")),
+        (LookupTypes.A1, (A1LookupGenerator(start=1, limit=None), 1, "A")),
+        (LookupTypes.A2, (A1LookupGenerator(start=2, limit=None), 2, "A")),
     ),
 )
 def test_make_params(lookup, expected):
@@ -122,7 +129,9 @@ def make_oob_test_params():
         yield lookup_type.value, oob_long_str
 
         same_type_but_more_rounds = A1LookupGenerator(
-            start=lookup_type.starts_at, max_rounds=lookup_type.max_rounds + 1
+            start=lookup_type.starts_at,
+            max_rounds=lookup_type.max_rounds + 1,
+            limit=lookup_type.limit,
         )
         yield pytest.param(
             same_type_but_more_rounds,

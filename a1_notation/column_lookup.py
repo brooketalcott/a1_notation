@@ -44,6 +44,9 @@ def _cache_with_defaults(f):
     return wrapper
 
 
+EXCEL_MAX_COLS: int = 16384
+
+
 @_cache_with_defaults
 class A1LookupGenerator:
     """
@@ -56,6 +59,8 @@ class A1LookupGenerator:
     args:
         start (int): default=1 for typical Excel-like column-letter-numbers
         max_rounds (int): default=3 max rounds of letter permutations
+        limit (None | int): default=16384 (excel max column range),
+        if None, will calculate the limit based on the max_rounds argument
     """
 
     __slots__ = ("_mapping", "_startidx", "_maxint", "_maxlen", "_a1_gen")
@@ -64,12 +69,14 @@ class A1LookupGenerator:
     )
     _valid_regex = _re.compile("[a-zA-Z]")
 
-    def __init__(self, start: int = 1, max_rounds: int = 3) -> _t.Self:
+    def __init__(
+        self, start: int = 1, max_rounds: int = 3, limit: None | int = EXCEL_MAX_COLS
+    ) -> _t.Self:
         self._mapping = {}
         self._a1_gen = self._iter_pool(start, max_rounds)
         self._maxlen = max_rounds
         self._startidx = start
-        self._maxint = self._calculate_maxint()
+        self._maxint = self._calculate_maxint() if limit is None else limit
 
     def __repr__(self):
         return (
